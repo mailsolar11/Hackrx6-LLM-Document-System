@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackRx LLM API Client</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; color: #333; }
+        .container { max-width: 900px; margin: auto; padding: 25px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        .section { margin-bottom: 30px; border-bottom: 1px solid #e0e6e8; padding-bottom: 20px; }
+        .section:last-child { border-bottom: none; padding-bottom: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #3498db; }
+        .flex-container { display: flex; gap: 15px; align-items: flex-end; }
+        .flex-container > div { flex-grow: 1; }
+        button {
+            padding: 12px 25px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover { background-color: #2980b9; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .response-box {
+            background-color: #ecf0f1;
+            border: 1px solid #dcdfe6;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 100px;
+        }
+        .response-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .status-message { font-weight: bold; }
+        .error-message { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HackRx LLM Document API Client</h1>
+        <p style="text-align: center; color: #7f8c8d;">A simple interface to demonstrate the webhook API functionality.</p>
+
+        <!-- Document Ingestion Section -->
+        <div class="section">
+            <h2>Document Ingestion</h2>
+            <p style="color: #7f8c8d;">Provide a URL or a local file path to ingest a document into the system.</p>
+            <div class="form-group">
+                <label for="ingestUrl">Document URL:</label>
+                <input type="text" id="ingestUrl" placeholder="e.g., https://example.com/document.pdf">
+            </div>
+            <div class="form-group">
+                <label for="ingestFilePath">Local File Path (Windows):</label>
+                <input type="text" id="ingestFilePath" placeholder="e.g., C:\Users\deepa\Downloads\document.docx">
+            </div>
+            <button id="ingestButton">Process Document</button>
+            <div id="ingestStatus" class="response-box" style="display: none;"></div>
+        </div>
+
+        <!-- Document Query Section -->
+        <div class="section">
+            <h2>Document Query</h2>
+            <p style="color: #7f8c8d;">Submit a natural language query against the processed documents.</p>
+            <div class="form-group">
+                <label for="queryText">Query:</label>
+                <textarea id="queryText" rows="3" placeholder="e.g., 46-year-old male, knee surgery in Pune, 3-month-old insurance policy"></textarea>
+            </div>
+            <button id="queryButton">Get Decision</button>
+            <div id="queryStatus" class="response-box" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const ingestUrlInput = document.getElementById('ingestUrl');
+        const ingestFilePathInput = document.getElementById('ingestFilePath');
+        const ingestButton = document.getElementById('ingestButton');
+        const ingestStatus = document.getElementById('ingestStatus');
+        
+        const queryTextarea = document.getElementById('queryText');
+        const queryButton = document.getElementById('queryButton');
+        const queryStatus = document.getElementById('queryStatus');
+
+        function showStatus(element, message, isError = false) {
+            element.style.display = 'block';
+            element.innerHTML = `<div class="response-header"><span class="${isError ? 'error-message' : 'status-message'}">${isError ? 'Error' : 'Status'}</span></div><pre>${message}</pre>`;
+        }
+
+        ingestButton.addEventListener('click', async () => {
+            const url = ingestUrlInput.value.trim();
+            const filePath = ingestFilePathInput.value.trim();
+
+            if (!url && !filePath) {
+                showStatus(ingestStatus, 'Please provide a URL or a local file path.', true);
+                return;
+            }
+
+            ingestStatus.style.display = 'block';
+            ingestStatus.innerHTML = `<div class="loader"></div><pre style="text-align: center;">Processing document...</pre>`;
+            
+            let payload = {};
+            if (url) {
+                payload = { url: url };
+            } else if (filePath) {
+                payload = { filepath: filePath };
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/process_document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStatus(ingestStatus, JSON.stringify(result, null, 2));
+                } else {
+                    showStatus(ingestStatus, `HTTP Error: ${response.status}\n${JSON.stringify(result, null, 2)}`, true);
+                }
+            } catch (error) {
+                showStatus(ingestStatus, `Network Error: ${error.message}. Is your Flask server running?`, true);
+            }
+        });
+
+        queryButton.addEventListener('click', async () => {
+            const query = queryTextarea.value.trim();
+            if (!query) {
+                showStatus(queryStatus, 'Please enter a query.', true);
+                return;
+            }
+
+            queryStatus.style.display = 'block';
+            queryStatus.innerHTML = `<div class="loader"></div><pre style="text-align: center;">Getting decision...</pre>`;
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus(queryStatus, JSON.stringify(result, null, 2));
+                } else {
+                    showStatus(queryStatus, `HTTP Error: ${response.status}\n${JSON.stringify(result, null, 2)}`, true);
+                }
+            } catch (error) {
+                showStatus(queryStatus, `Network Error: ${error.message}. Is your Flask server running?`, true);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+Flask
+python-dotenv
+pypdf2
+python-docx
+requests
+langchain
+langchain-community
+langchain-text-splitters
+langchain-google-genai
+sentence-transformers
+faiss-cpu
+pydantic
