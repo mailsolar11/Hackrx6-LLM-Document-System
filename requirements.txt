@@ -11,3 +11,4 @@ pydantic
 pandas
 lxml
 Flask-Cors
+gunicorn
